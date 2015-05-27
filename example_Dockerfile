@@ -1,0 +1,8 @@
+FROM python:3.4
+ADD . /twitter_server
+WORKDIR /twitter_server
+RUN pip install -r requirements.txt
+ENV CONSUMER_KEY='<<CONSUMER_KEY>>'
+ENV CONSUMER_SECRET='<<CONSUMER_SECRET>>'
+ENV ACCESS_TOKEN_KEY='<<ACCESS_TOKEN_KEY>>'
+ENV ACCESS_TOKEN_SECRET='<<ACCESS_TOKEN_SECRET>>'
