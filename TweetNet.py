@@ -23,11 +23,16 @@ class TweetNet:
         self.db = self.client[database]
         self.collection = self.db[collection]
 
-    def make_q_dict(self, since_id):
-        """ Creates a query dict for the search API call """
+    def make_q_dict(self, since_id=None):
+        """ Creates a query dict for the search API call, if no since ID is given, 
+        the program will automatically return the latest id in the collection"""
         q_dict = {'q': self.query, 'count': '100'}
         if since_id:
             q_dict['since_id'] = since_id
+        else:
+            last_tweet = self.collection.find_one(sort=[("_id", -1)])
+            if last_tweet:
+                q_dict['since_id'] = last_tweet['_id']
         return q_dict
 
     def get_tweets(self, since_id=None):
@@ -39,32 +44,25 @@ class TweetNet:
 
     def clean_tweet(self, tweet):
         """ Extract import information from tweet to save into database """
-
         data = {}
         # Get User Attributes
-        data['from_user'] = tweet.get('from_user')
-        data['from_user_id'] = tweet.get('from_user_id')
-        data['from_user_id_str'] = tweet.get('from_user_id_str')
-        data['from_user_name'] = tweet.get('from_user_name')
+        data['from_user'] = tweet['user']['screen_name']
+        data['from_user_id'] = tweet['user']['id']
         data['from_user_followers'] = tweet['user']['followers_count']
         data['user_lang'] = tweet['user']['lang']
         data['user_statuses'] = tweet['user']['statuses_count']
         data['user_utc_offset'] = tweet['user']['utc_offset']
 
         # Tweet Attributes
-        data['created_at'] = tweet.get('created_at')
+        data['created_at'] = tweet['created_at']
         data['geo'] = tweet.get('geo')
-        data['id'] = tweet.get('id')
-        data['iso_language_code'] = tweet.get('iso_language_code')
-        data['source'] = tweet.get('source')
-        data['text'] = tweet.get('text')
+        data['_id'] = tweet['id']
+        data['iso_language_code'] = tweet['metadata']['iso_language_code']
+        data['result_type'] = tweet['metadata']['result_type']
+        data['source'] = tweet['source']
+        data['text'] = tweet['text']
         data['retweet_count'] = tweet['retweet_count']
         data['favorite_count'] = tweet.get('favorite_count', 0)
-
-        data['to_user'] = tweet.get('to_user')
-        data['to_user_id'] = tweet.get('to_user_id')
-        data['to_user_id_str'] = tweet.get('to_user_id_str')
-        data['to_user_name'] = tweet.get('to_user_name')
 
         # Extracts hashtags
         data['hashtags'] = []
@@ -90,7 +88,8 @@ class TweetNet:
 
     def create_net(self, tweet):
         """ Imports tweet into database """
-        self.collection.insert_one(self.clean_tweet(tweet))
+        tweet = self.clean_tweet(tweet)
+        self.collection.update({'_id': tweet['_id']}, tweet, True)
 
     def query_tweets(self, search):
         """ Get tweets query """
@@ -103,8 +102,5 @@ class TweetNet:
         tweet['_id'] = str(tweet['_id'])
         return tweet
 
-if __name__ == "__main__":
-    net_getter = TweetNet(
-        query='openFOIA', collection='openfoia', database='twitter')
-    # net_getter.get_tweets()
-    net_getter.query_tweets('18f')
+    def drop_collection(self):
+        self.collection.drop()

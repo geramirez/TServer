@@ -10,8 +10,8 @@ mongo_uri = 'mongodb://%s:27017/' % os.environ[
 
 # start client get tweets
 client = TweetNet(
-    query='foia',
-    collection='openfoia',
+    query='campususa',
+    collection='foia',
     database='twitter',
     mongo_uri=mongo_uri)
 
@@ -21,6 +21,10 @@ def get():
     client.get_tweets()
     return "Collecting Tweet"
 
+@app.route('/api/drop')
+def drop():
+    client.drop_collection()
+    return "Collection Dropped"
 
 @app.route('/api/search/<keyword>')
 def search(keyword):
