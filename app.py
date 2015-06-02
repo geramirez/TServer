@@ -1,6 +1,7 @@
 import os
+import json
 
-from flask import jsonify, Flask
+from flask import jsonify, render_template, Flask
 from TweetNet import TweetNet
 
 app = Flask(__name__)
@@ -10,10 +11,15 @@ mongo_uri = 'mongodb://%s:27017/' % os.environ[
 
 # start client get tweets
 client = TweetNet(
-    query='campususa',
+    query='foia',
     collection='foia',
     database='twitter',
     mongo_uri=mongo_uri)
+
+
+@app.route('/<keyword>')
+def graph(keyword):
+    return render_template('graph.html', keyword=keyword)
 
 
 @app.route('/api/collect/')
@@ -21,16 +27,17 @@ def get():
     client.get_tweets()
     return "Collecting Tweet"
 
+
 @app.route('/api/drop')
 def drop():
     client.drop_collection()
     return "Collection Dropped"
 
+
 @app.route('/api/search/<keyword>')
 def search(keyword):
-    tweets = client.query_tweets(keyword)
-    return jsonify(
-        {'tweets': [TweetNet.prepare_tweet(tweet) for tweet in tweets]})
+    data = client.prepare_graph(keyword)
+    return jsonify(data)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', debug=True, use_reloader=False)

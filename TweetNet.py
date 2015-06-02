@@ -1,4 +1,5 @@
 import os
+import operator
 import re
 
 from pymongo import MongoClient
@@ -24,8 +25,9 @@ class TweetNet:
         self.collection = self.db[collection]
 
     def make_q_dict(self, since_id=None):
-        """ Creates a query dict for the search API call, if no since ID is given, 
-        the program will automatically return the latest id in the collection"""
+        """ Creates a query dict for the search API call, if no since ID
+        is given, the program will automatically return the latest id in
+        the collection"""
         q_dict = {'q': self.query, 'count': '100'}
         if since_id:
             q_dict['since_id'] = since_id
@@ -89,6 +91,7 @@ class TweetNet:
     def create_net(self, tweet):
         """ Imports tweet into database """
         tweet = self.clean_tweet(tweet)
+        print(tweet['_id'])
         self.collection.update({'_id': tweet['_id']}, tweet, True)
 
     def query_tweets(self, search):
@@ -104,3 +107,25 @@ class TweetNet:
 
     def drop_collection(self):
         self.collection.drop()
+
+    # Scripts for Analyzing Tweet Data
+    def prepare_graph(self, search):
+        tweets = self.query_tweets(search)
+        links = list()
+        nodes = dict()
+        counter = 0
+        # Nodes
+        for tweet in tweets:
+            source = tweet['from_user']
+            if source not in nodes:
+                nodes[source] = counter
+                counter += 1
+            for target in tweet['user_mentions']:
+                if target not in nodes:
+                    nodes[target] = counter
+                    counter += 1
+                links.append(
+                    {'source': nodes[source], 'target': nodes[target]})
+        nodes = sorted(nodes.items(), key=operator.itemgetter(1))
+        nodes = [{'name': node} for node, index in nodes]
+        return({'nodes': nodes, 'links': links})
