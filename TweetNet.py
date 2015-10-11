@@ -1,5 +1,6 @@
 import os
 import operator
+import logging
 import re
 
 from pymongo import MongoClient
@@ -20,6 +21,7 @@ class TweetNet:
             mongo_uri=mongo_uri, database=database, collection=collection)
 
     def setup_database(self, mongo_uri, database, collection):
+        logging.info("Initializing Mongo database")
         self.client = MongoClient(mongo_uri)
         self.db = self.client[database]
         self.collection = self.db[collection]
@@ -39,10 +41,12 @@ class TweetNet:
 
     def get_tweets(self, since_id=None):
         """ Page through tweets based on search query """
+        logging.info("Starting tweet collection")
         q_dict = self.make_q_dict(since_id)
         pager = TwitterRestPager(self.api, 'search/tweets', q_dict)
         for tweet in pager.get_iterator(wait=3):
             self.create_net(tweet)
+        logging.info("Ending tweet collection")
 
     def clean_tweet(self, tweet):
         """ Extract import information from tweet to save into database """
@@ -91,13 +95,12 @@ class TweetNet:
     def create_net(self, tweet):
         """ Imports tweet into database """
         tweet = self.clean_tweet(tweet)
-        print(tweet['_id'])
         self.collection.update({'_id': tweet['_id']}, tweet, True)
 
     def query_tweets(self, search):
         """ Get tweets query """
-        regex = re.compile(search)
-        return self.collection.find({"text": regex})
+        research = re.compile(search)
+        return self.collection.find({"text": research})
 
     @staticmethod
     def prepare_tweet(tweet):
