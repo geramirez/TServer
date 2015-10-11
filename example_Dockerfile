@@ -1,4 +1,4 @@
-FROM python:3.4
+FROM python:3.5
 ADD . /twitter_server
 WORKDIR /twitter_server
 RUN pip install -r requirements.txt
