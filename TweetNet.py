@@ -1,7 +1,6 @@
 import os
 import operator
 import logging
-import re
 
 from pymongo import MongoClient
 from TwitterAPI import TwitterAPI, TwitterRestPager
@@ -21,10 +20,11 @@ class TweetNet:
             mongo_uri=mongo_uri, database=database, collection=collection)
 
     def setup_database(self, mongo_uri, database, collection):
+        """ Connect to database """
         logging.info("Initializing Mongo database")
-        self.client = MongoClient(mongo_uri)
-        self.db = self.client[database]
-        self.collection = self.db[collection]
+        client = MongoClient(mongo_uri)
+        db = client[database]
+        self._collection = db[collection]
 
     def make_q_dict(self, since_id=None):
         """ Creates a query dict for the search API call, if no since ID
@@ -34,19 +34,10 @@ class TweetNet:
         if since_id:
             q_dict['since_id'] = since_id
         else:
-            last_tweet = self.collection.find_one(sort=[("_id", -1)])
+            last_tweet = self._collection.find_one(sort=[("_id", -1)])
             if last_tweet:
                 q_dict['since_id'] = last_tweet['_id']
         return q_dict
-
-    def get_tweets(self, since_id=None):
-        """ Page through tweets based on search query """
-        logging.info("Starting tweet collection")
-        q_dict = self.make_q_dict(since_id)
-        pager = TwitterRestPager(self.api, 'search/tweets', q_dict)
-        for tweet in pager.get_iterator(wait=3):
-            self.create_net(tweet)
-        logging.info("Ending tweet collection")
 
     def clean_tweet(self, tweet):
         """ Extract import information from tweet to save into database """
@@ -95,30 +86,31 @@ class TweetNet:
     def create_net(self, tweet):
         """ Imports tweet into database """
         tweet = self.clean_tweet(tweet)
-        self.collection.update({'_id': tweet['_id']}, tweet, True)
+        self._collection.update({'_id': tweet['_id']}, tweet, True)
 
-    def query_tweets(self, search):
-        """ Get tweets query """
-        research = re.compile(search)
-        return self.collection.find({"text": research})
+    def build_collection(self, since_id=None):
+        """ Page through tweets based on search query """
+        logging.info("Starting tweet collection")
+        q_dict = self.make_q_dict(since_id)
+        pager = TwitterRestPager(self.api, 'search/tweets', q_dict)
+        for tweet in pager.get_iterator(wait=3):
+            self.create_net(tweet)
+        logging.info("Ending tweet collection")
 
-    @staticmethod
-    def prepare_tweet(tweet):
-        """ Preparse tweet for rendering """
-        tweet['_id'] = str(tweet['_id'])
-        return tweet
+    def get_tweet_counts(self):
+        """ Get the total number of tweets in the database """
+        return self._collection.count()
 
-    def drop_collection(self):
-        self.collection.drop()
+    def get_tweets(self, limit=500):
+        """ Get raw tweets """
+        return self._collection.find().limit(limit)
 
-    # Scripts for Analyzing Tweet Data
-    def prepare_graph(self, search):
-        tweets = self.query_tweets(search)
+    def make_graph(self):
+        """ Prepares a node-edge graph for rendering tweets """
         links = list()
         nodes = dict()
         counter = 0
-        # Nodes
-        for tweet in tweets:
+        for tweet in self.get_tweets():
             source = tweet['from_user']
             if source not in nodes:
                 nodes[source] = counter
