@@ -26,17 +26,14 @@ class TweetNet:
         db = client[database]
         self._collection = db[collection]
 
-    def make_q_dict(self, since_id=None):
+    def make_q_dict(self):
         """ Creates a query dict for the search API call, if no since ID
         is given, the program will automatically return the latest id in
         the collection"""
         q_dict = {'q': self.query, 'count': '100'}
-        if since_id:
-            q_dict['since_id'] = since_id
-        else:
-            last_tweet = self._collection.find_one(sort=[("_id", -1)])
-            if last_tweet:
-                q_dict['since_id'] = last_tweet['_id']
+        last_tweet = self._collection.find_one(sort=[("_id", -1)])
+        if last_tweet:
+            q_dict['since_id'] = last_tweet['_id']
         return q_dict
 
     def clean_tweet(self, tweet):
@@ -88,10 +85,10 @@ class TweetNet:
         tweet = self.clean_tweet(tweet)
         self._collection.update({'_id': tweet['_id']}, tweet, True)
 
-    def build_collection(self, since_id=None):
+    def build_collection(self):
         """ Page through tweets based on search query """
         logging.info("Starting tweet collection")
-        q_dict = self.make_q_dict(since_id)
+        q_dict = self.make_q_dict()
         pager = TwitterRestPager(self.api, 'search/tweets', q_dict)
         for tweet in pager.get_iterator(wait=3):
             self.create_net(tweet)

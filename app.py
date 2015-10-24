@@ -31,7 +31,6 @@ def index():
         total_tweets=client.get_tweet_counts()
     )
 
-
 @app.route('/api/tweets')
 def tweets():
     """ Enpoint for raw tweets """
@@ -45,6 +44,7 @@ def graph():
 
 
 if __name__ == "__main__":
+    client.build_collection()
     # Schedule Updates
     scheduler = BackgroundScheduler()
     job = scheduler.add_job(client.build_collection, 'interval', minutes=30)
